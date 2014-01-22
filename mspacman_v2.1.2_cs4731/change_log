@@ -1,0 +1,65 @@
+Change log:
+
+v 2.1.2
+
+- changed the way the images and text files are loaded to allow applet version to work
+- added a way to _G_ to record games for javascript replays on web-site
+- localised file-name descriptors
+- added the following helper methods:
+	- public int getNextEdibleGhostScore();
+	- public int getNumActivePills();
+	- public int getNumActivePowerPills();
+	- public int[] getPillIndicesActive();
+	- public int[] getPowerPillIndicesActive();
+- updated the sample controllers to use the new functions
+- added boolean flag to GameView to prevent unnecessary storing of information
+- use StringBuilder to save replays
+- updated recording feature to flush string after each save
+- include starter package in code distribution
+
+known issues:
+
+- bug in recording replays: the ghost update method (every nth game tick) causes the replay to crash whenever a power pill has been eaten). This is caused by the lack of update for edible ghosts. Fix in progress.
+
+v 2.1.1
+
+- changed the graphics in GameView to do double buffering
+- added the ability to do simple visuals for debugging/testing/demonstrations
+- changed the way a game is initialised: removed the singleton pattern
+- added NearestPillPacManVS to illustrate the visuals
+- added 5 (utility) methods in Game/G:
+	- public int[] getPath(int from,int to);
+	- public int getTarget(int from,int[] targets,boolean nearest,DM measure);
+	- public int[] getGhostPath(int whichGhost,int to);
+	- public int getGhostPathDistance(int whichGhost,int to);
+	- public int getGhostTarget(int from,int[] targets,boolean nearest);
+- changelog now included in source code distribution
+	
+v 2.1.0
+
+- fixed the creation of the junction array in the class Node (changed from >3 to >2)
+- changed the spelling from juntionIndices to junctionIndices
+- added 2 methods to Game (and G) to get all possible directions for Ms Pac-Man and the ghosts as an array
+	- changed the sample controllers accordingly
+	- changed the game core accordingly
+- removed Random from G (can use it from Game)
+- changed advanceGame(-) to return the actual actions taken (primarily for replays)
+- fixed the replay mechanism which was buggy in some cases where a life was lost
+- added a sample experimental setup to Exec to illsutrate how to run many games efficiently
+- fixed nearestPillPac-Man to include search for power pills
+- changed the way ghost reversals are done (now using a Boolean flag)
+- added more comments to source code, especially in Game	
+	
+v 2.0.2
+
+- fixed the isJunction function which now checks for more than 2 options, not 3 (thanks to Daryl)
+	
+v 2.0.1
+
+- fixed the speed of the ghosts when edible - now they move more slowly, as before (thanks to Kien)
+- the scores obtained for eating ghosts in succession was incorrect - now it is 200-400-800-1600 (thanks to Kien)
+- added the ability to record and replay games by saving the actions taken by the controllers	
+	
+v 2.0.0
+
+- complete revamp of the code. Please see documentation on the website for information regarding the code
