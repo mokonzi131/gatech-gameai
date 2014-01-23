@@ -8,6 +8,7 @@ import game.core.GameView;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Stack;
 
 public class MyGhosts implements GhostController
 {
@@ -31,29 +32,62 @@ public class MyGhosts implements GhostController
 	}
 	
 	private class ModeStateMachine {
-		private MODE m_mode;
+		private final int updateSpec[][] = {
+				{7, 20, 7, 20, 5, 20, 5, Integer.MAX_VALUE},
+				{7, 20, 7, 20, 5, 1033, 0, Integer.MAX_VALUE},
+				{5, 20, 5, 20, 5, 1037, 0, Integer.MAX_VALUE}};
+		private Stack<Integer> m_nextSpecChangeStack;
 		
-		private int counter = 0;
+		private MODE m_mode;
+		private long m_changeTimer;
+		private long m_lastRecordedTime;
+		public boolean reverse = false;
 		
 		public ModeStateMachine(Game game) {
 			m_mode = MODE.SCATTER;
+			
+			// build updateSpec for state changes based on level
+			m_nextSpecChangeStack = new Stack<>();
+			int specLevel = 0;
+			if (game.getCurLevel() > 0 && game.getCurLevel() < 4)
+				specLevel = 1;
+			else if (game.getCurLevel() >= 4)
+				specLevel = 2;
+			for (int i = updateSpec[specLevel].length - 1; i >= 0; --i)
+				m_nextSpecChangeStack.push(new Integer(updateSpec[specLevel][i]));
+			m_changeTimer = m_nextSpecChangeStack.pop() * 1000L;
+			
+			m_lastRecordedTime = System.currentTimeMillis();
 		}
 		
-		public void updateState() {
-			// TODO - implement real timings for all levels
-			// TODO - recognize and pause on frightened mode
-			// TODO - reverse between scatter and chase
-			++counter;
-			if (counter >= 200) {
-				counter = 0;
+		public void updateState(Game game) {
+			// unset reverse flag
+			if (reverse) reverse = false;
+			
+			// measure elapsed time from last state update call
+			long currentTime = System.currentTimeMillis();
+			long elapsedTime = currentTime - m_lastRecordedTime;
+			
+			// determine if any ghosts are frightened (in frightened mode)
+			boolean frightened = false;
+			for (int i = 0; i < 4; ++i)
+				if (game.isEdible(i))
+					frightened = true;
+			
+			// if not in frightened mode, decrement timer
+			if (frightened == false)
+				m_changeTimer -= (m_changeTimer == Integer.MAX_VALUE * 1000L) ? 0 : elapsedTime;
+			m_lastRecordedTime = currentTime;
+			
+			// execute a mode change if needed
+			if (m_changeTimer <= 0) {
+				reverse = true;
+				m_changeTimer = m_nextSpecChangeStack.pop() * 1000L;
 				switch(m_mode) {
 				case CHASE:
 					m_mode = MODE.SCATTER;
 					break;
 				case SCATTER:
-					m_mode = MODE.CHASE;
-					break;
-				case FRIGHTENED:
 					m_mode = MODE.CHASE;
 					break;
 				}
@@ -85,9 +119,7 @@ public class MyGhosts implements GhostController
 		}
 		
 		// update the mode state machine
-		m_modeStateMachine.updateState();
-		if (Debugging)
-			System.out.println(m_modeStateMachine.mode());
+		m_modeStateMachine.updateState(game);
 		
 		// assign ghost targets
 		int[] directions = new int[Game.NUM_GHOSTS];
@@ -108,10 +140,13 @@ public class MyGhosts implements GhostController
 				destination = game.getCurGhostLoc(i);
 				break;
 			}
+			if (game.isEdible(i))
+				destination = game.getCurGhostLoc(i);
 			
 			// only deliver a direction for ghosts in need of a decision
 			if (game.ghostRequiresAction(i)) {
-				directions[i] = game.getNextGhostDir(i, destination, true, Game.DM.PATH);
+				int action = game.getNextGhostDir(i, destination, true, Game.DM.PATH);
+				directions[i] = m_modeStateMachine.reverse ? game.getReverse(action) : action;
 			}
 			
 			// print debugging lines
