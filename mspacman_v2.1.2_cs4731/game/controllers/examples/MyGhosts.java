@@ -196,9 +196,11 @@ public class MyGhosts implements GhostController
 		
 		public int getChaseDestination(Game game, int index) {
 			switch(index) {
-			case 0:
+			case BLINKY:
+				// target pac-man
 				return game.getCurPacManLoc();
-			case 1:
+			case PINKY:
+				// get the location 4 spaces ahead of pac-man in the direction he is pointing
 				int loc = game.getCurPacManLoc();
 				int locx = game.getX(loc);
 				int locy = game.getY(loc);
@@ -218,10 +220,40 @@ public class MyGhosts implements GhostController
 					break;
 				}
 				return nearestIndex(locx, locy);
-			case 2:
-				// TODO clyde
-			case 3:
-				// TODO inky
+			case CLYDE:
+				// scatter if too close else attack pac-man directly
+				double distance = game.getEuclideanDistance(game.getCurPacManLoc(), game.getCurGhostLoc(CLYDE));
+				if (distance > 8 * TILE_GAP)
+					return game.getCurPacManLoc();
+				else
+					return clydeCorner().index;
+			case INKY:
+				// find the location 2 spaces ahead of pac-man in the direction he is pointing
+				int head = game.getCurPacManLoc();
+				int headx = game.getX(head);
+				int heady = game.getY(head);
+				switch(game.getCurPacManDir()) {
+				case Game.LEFT:
+					headx -= 2 * TILE_GAP;
+					break;
+				case Game.RIGHT:
+					headx += 2 * TILE_GAP;
+					break;
+				case Game.UP:
+					heady -= 2 * TILE_GAP;
+					headx -= 2 * TILE_GAP;
+					break;
+				case Game.DOWN:
+					heady += 2 * TILE_GAP;
+					break;
+				}
+				// double the vector from Blinky to that location and target that spot
+				int tail = game.getCurGhostLoc(BLINKY);
+				int tailx = game.getX(tail);
+				int taily = game.getY(tail);
+				headx += (headx - tailx);
+				heady += (heady - taily);
+				return nearestIndex(headx, heady);
 			default:
 				return 0;
 			}
