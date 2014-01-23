@@ -11,6 +11,11 @@ import java.util.List;
 
 public class MyGhosts implements GhostController
 {
+	private static final int BLINKY = 0;
+	private static final int PINKY = 1;
+	private static final int INKY = 3;
+	private static final int CLYDE = 2;
+	
 	// debugging switch
 	private boolean Debugging = false;
 	public MyGhosts(boolean debugging)
@@ -19,8 +24,6 @@ public class MyGhosts implements GhostController
 	}
 	
 	// ghost mode state machine
-	private ModeStateMachine m_modeStateMachine;
-	
 	private enum MODE {
 		CHASE,
 		SCATTER,
@@ -29,46 +32,48 @@ public class MyGhosts implements GhostController
 	
 	private class ModeStateMachine {
 		private MODE m_mode;
-		private Game m_game;
 		
 		private int counter = 0;
 		
 		public ModeStateMachine(Game game) {
 			m_mode = MODE.SCATTER;
-			m_game = game;
 		}
 		
 		public void updateState() {
-			// TODO - implement real timings
-			// TODO - implement pause on frightened mode
+			// TODO - implement real timings for all levels
+			// TODO - recognize and pause on frightened mode
 			// TODO - reverse between scatter and chase
-//			++counter;
-//			if (counter >= 50) {
-//				counter = 0;
-//				switch(m_mode) {
-//				case CHASE:
-//					m_mode = MODE.SCATTER;
-//					break;
-//				case SCATTER:
-//					m_mode = MODE.FRIGHTENED;
-//					break;
-//				case FRIGHTENED:
-//					m_mode = MODE.CHASE;
-//					break;
-//				}
-//			}
+			++counter;
+			if (counter >= 200) {
+				counter = 0;
+				switch(m_mode) {
+				case CHASE:
+					m_mode = MODE.SCATTER;
+					break;
+				case SCATTER:
+					m_mode = MODE.CHASE;
+					break;
+				case FRIGHTENED:
+					m_mode = MODE.CHASE;
+					break;
+				}
+			}
 		}
 		
 		public MODE mode() { return m_mode; }
 	}
 	
-	/// TEMP
-	private int index = 0;
-	int hold = 0;
-	int oldloc = 0;
-	/// END TEMP
-	
+	// controller logic variables
+	private ModeStateMachine m_modeStateMachine;
+	private GameMap m_gameMap;
 	private int currentLevel = -1;
+	private static int[] elroy1Spec =
+		{20, 30, 40, 40, 40, 50, 50, 50, 60, 60, 60, 80, 80, 80, 100, 100, 100, 100, 120, 120, 120};
+	private int elroy1Threshold(int level) {
+		if (level > 20)
+			level = 20;
+		return elroy1Spec[level];
+	}
 	
 	public int[] getActions(Game game, long timeDue)
 	{
@@ -77,12 +82,6 @@ public class MyGhosts implements GhostController
 			currentLevel = game.getCurLevel();
 			m_gameMap = new GameMap(game);
 			m_modeStateMachine = new ModeStateMachine(game);
-		}
-		if (Debugging) {
-			Color color = Color.DARK_GRAY;
-			for (Tile tile : m_gameMap.tiles()) {
-				GameView.addPoints(game, color, tile.index);
-			}
 		}
 		
 		// update the mode state machine
@@ -96,15 +95,21 @@ public class MyGhosts implements GhostController
 			int destination = 0;
 			switch (m_modeStateMachine.mode()) {
 			case CHASE:
-				destination = game.getCurPacManLoc();
+				destination = m_gameMap.getChaseDestination(game, i);
 				break;
 			case SCATTER:
-				destination = m_gameMap.getScatterTarget(i);
+				// speedy elroy scatter logic depends on number of dots left and clyde's being outside of the lair
+				boolean elroy =
+						(game.getNumActivePills() < elroy1Threshold(currentLevel)) ? true : false;
+				if (game.getLairTime(CLYDE) > 0) elroy = false;
+				destination = m_gameMap.getScatterTarget(game, i, elroy);
 				break;
 			case FRIGHTENED:
+				destination = game.getCurGhostLoc(i);
 				break;
 			}
 			
+			// only deliver a direction for ghosts in need of a decision
 			if (game.ghostRequiresAction(i)) {
 				directions[i] = game.getNextGhostDir(i, destination, true, Game.DM.PATH);
 			}
@@ -128,27 +133,11 @@ public class MyGhosts implements GhostController
 				GameView.addPoints(game, color, destination);
 			}
 		}
-		
-//		DM[] dms = Game.DM.values();
-//		for(int i=0;i<directions.length;i++) {
-			// the ai - pacman's current location
-//			int myComputedGhostDestination = (i == 0) ? m_gameMap.tiles().get(index).index : 0; //game.getCurPacManLoc();
-//			System.out.println("NODE 1: " + game.getX(1) + " - " + game.getY(1));
-//			++hold;
-//			if (hold > 50) {
-//				hold = 0;
-//				index += 1;
-//			}
-//			if (index >= m_gameMap.tiles().size())
-//				index = 0;
-//		}
 				
 		return directions;
 	}
 	
 	// the internal game map logic
-	private GameMap m_gameMap;
-	
 	private class Tile {
 		public int index;
 		public int x;
@@ -162,7 +151,6 @@ public class MyGhosts implements GhostController
 	}
 	
 	private class GameMap {
-		private Game m_game;
 		private List<Tile> m_tiles;
 		private Tile m_upperLeft = null;
 		private Tile m_upperRight = null;
@@ -170,7 +158,6 @@ public class MyGhosts implements GhostController
 		private Tile m_lowerRight = null;
 		
 		public GameMap(Game game) {
-			m_game = game;
 			m_tiles = new ArrayList<>();
 			
 			// assume the first node is a valid tile (experimentation suggests that this is always the case)
@@ -206,11 +193,10 @@ public class MyGhosts implements GhostController
 			}
 		}
 		
-		public List<Tile> tiles() { return m_tiles; }
-		public int getChaseDestination(int index) {
+		public int getChaseDestination(Game game, int index) {
 			switch(index) {
 			case 0:
-				return m_game.getCurPacManLoc();
+				return game.getCurPacManLoc();
 			case 1:
 				// TODO pinky
 			case 2:
@@ -221,15 +207,16 @@ public class MyGhosts implements GhostController
 				return 0;
 			}
 		}
-		public int getScatterTarget(int index) {
+		public int getScatterTarget(Game game, int index, boolean elroy) {
 			switch (index) {
-			case 0:
-				return blinkyCorner().index;
-			case 1:
+			case BLINKY:
+				if (elroy) return game.getCurPacManLoc();
+				else return blinkyCorner().index;
+			case PINKY:
 				return pinkyCorner().index;
-			case 2:
+			case CLYDE:
 				return clydeCorner().index;
-			case 3:
+			case INKY:
 				return inkyCorner().index;
 			default:
 					return 0;
