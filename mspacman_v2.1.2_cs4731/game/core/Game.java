@@ -37,7 +37,8 @@ public interface Game
 	public static final int COMMON_LAIR_TIME=40;			//time spend in lair after being eaten
 	public static final float LAIR_REDUCTION=0.9f;			//reduction factor by which lair times decrease as level number increases
 	public static final int LEVEL_LIMIT=3000;				//time limit for a level
-	public static final float GHOST_REVERSAL=0.0015f;		//probability of a global ghost reversal event
+	//public static final float GHOST_REVERSAL=0.0015f;		//probability of a global ghost reversal event
+	public static final float GHOST_REVERSAL = 0.0f;
 	public static final int MAX_LEVELS=16;					//maximum number of levels played before the end of the game
 	public static final int EXTRA_LIFE_SCORE=10000;			//extra life is awarded when this many points have been collected
 	public static final int EAT_DISTANCE=2;					//distance in the connected graph considered close enough for an eating event to take place
