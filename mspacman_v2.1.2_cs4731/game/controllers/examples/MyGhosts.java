@@ -156,6 +156,7 @@ public class MyGhosts implements GhostController
 		private Tile m_upperRight = null;
 		private Tile m_lowerLeft = null;
 		private Tile m_lowerRight = null;
+		private static final int TILE_GAP = 4;
 		
 		public GameMap(Game game) {
 			m_tiles = new ArrayList<>();
@@ -174,7 +175,7 @@ public class MyGhosts implements GhostController
 				// new node is in current row
 				if (y == lasty) {
 					// if we aren't at least 4 pixels away, this is not a significant change
-					if (x < lastx + 4) continue;
+					if (x < lastx + TILE_GAP) continue;
 					// otherwise, it is, create a new tile and update current column
 					else {
 						m_tiles.add(new Tile(i, x, y));
@@ -182,7 +183,7 @@ public class MyGhosts implements GhostController
 					}
 				} else {
 					// we must be at least 4 pixels away to be significant
-					if (y < lasty + 4) continue;
+					if (y < lasty + TILE_GAP) continue;
 					// create new tile, and update row and column (since we could be in an arbitrary column)
 					else {
 						m_tiles.add(new Tile(i, x, y));
@@ -198,7 +199,25 @@ public class MyGhosts implements GhostController
 			case 0:
 				return game.getCurPacManLoc();
 			case 1:
-				// TODO pinky
+				int loc = game.getCurPacManLoc();
+				int locx = game.getX(loc);
+				int locy = game.getY(loc);
+				switch (game.getCurPacManDir()) {
+				case Game.LEFT:
+					locx -= 4 * TILE_GAP;
+					break;
+				case Game.RIGHT:
+					locx += 4 * TILE_GAP;
+					break;
+				case Game.UP:
+					locx -= 4 * TILE_GAP;
+					locy -= 4 * TILE_GAP;
+					break;
+				case Game.DOWN:
+					locy += 4 * TILE_GAP;
+					break;
+				}
+				return nearestIndex(locx, locy);
 			case 2:
 				// TODO clyde
 			case 3:
@@ -253,6 +272,19 @@ public class MyGhosts implements GhostController
 				}
 			}
 			return m_lowerLeft;
+		}
+		private int nearestIndex(int x, int y) {
+			// find the nearest tile to a coordinate brute force O(n) euclidean distance sqrt(pow, pow)
+			Tile nearestTile = m_tiles.get(0);
+			double distance = Double.MAX_VALUE;
+			for (Tile tile : m_tiles) {
+				double testDistance = Math.sqrt(Math.pow(x - tile.x, 2) + Math.pow(y - tile.y, 2)); 
+				if (testDistance < distance) {
+					distance = testDistance;
+					nearestTile = tile;
+				}
+			}
+			return nearestTile.index;
 		}
 	}
 }
