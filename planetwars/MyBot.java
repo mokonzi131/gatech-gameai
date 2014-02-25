@@ -55,14 +55,48 @@ public class MyBot {
 	// Make the best investment possible (greedy)
 	//  where investment value is calculated by quickest return on investment
 	// This is not optimal, but a decent heuristic to start with
-	private static void invest(PlanetWars pw, Node node) {
-		Investment bestInvestment = null;
+	private static void invest(PlanetWars pw, Node node, long time) {
+		Investment best = null;
+		
+		boolean done = false;
 		for (Planet source : pw.MyPlanets()) {
 			for (Planet destination : pw.NotMyPlanets()) {
-				int distance = pw.Distance(source.PlanetID(), destination.PlanetID());
-				Snapshot snapshot = node.timeline.get(distance);
+				if (System.currentTimeMillis() - time > 950) {
+					done = true;
+					break;
+				}
+				int sid = source.PlanetID();
+				int did = destination.PlanetID();
+				int distance = pw.Distance(sid, did);
+				//Snapshot snapshot = node.timeline.get(distance);
+				Snapshot snapshot = node.timeline.get(0);
+				
+				// make sure we have enough forces to invest
+				int sacrifice = snapshot.planets[did] + 1; // we need at least 1 more than they will have
+				if (snapshot.planets[sid] < sacrifice) continue;
+				
+				// compute time it will take to net zero on investment
+				//  using makeup time by solving equation: 1 + [growth_rate][time] = [sacrifice]
+//				int makeupTime = (sacrifice - 1) / node.growthRates[did];
+//				int netTime = distance + makeupTime;
+				
+				// TODO temp net to use heuristic of closest planet
+				int netTime = distance;
+				
+				// figure out new best investment
+				if (best == null || netTime < best.timeToReturn) {
+					best = new Investment();
+					best.source = sid;
+					best.destination = did;
+					best.force = sacrifice;
+					best.timeToReturn = netTime;
+				}
 			}
+			if (done) break;
 		}
+		
+		if (best != null)
+			pw.IssueOrder(best.source, best.destination, best.force);
 	}
 	
 	public static class Snapshot {
@@ -188,11 +222,14 @@ public class MyBot {
 	}
 	
     public static void DoTurn(PlanetWars pw) {
+    	long time = System.currentTimeMillis();
+    	if (!pw.IsAlive(1) || pw.MyPlanets().size() <= 0) return;
+    	
     	// setup analysis Node
     	Node node = new Node(pw);
     	
     	// perform an investment
-    	invest(pw, node);
+    	invest(pw, node, time);
     	
     	// TODO make further investments according to strength, advantage, or desperation
     }
