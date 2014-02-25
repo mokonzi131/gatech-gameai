@@ -77,11 +77,8 @@ public class MyBot {
 				
 				// compute time it will take to net zero on investment
 				//  using makeup time by solving equation: 1 + [growth_rate][time] = [sacrifice]
-//				int makeupTime = (sacrifice - 1) / node.growthRates[did];
-//				int netTime = distance + makeupTime;
-				
-				// TODO temp net to use heuristic of closest planet
-				int netTime = distance;
+				int makeupTime = (sacrifice - 1);// / node.growthRates[did];
+				int netTime = distance + makeupTime;
 				
 				// figure out new best investment
 				if (best == null || netTime < best.timeToReturn) {
