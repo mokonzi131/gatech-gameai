@@ -1,17 +1,11 @@
 import java.util.*;
 
 public class MyBot {
-    // The DoTurn function is where your code goes. The PlanetWars object
-    // contains the state of the game, including information about all planets
-    // and fleets that currently exist. Inside this function, you issue orders
-    // using the pw.IssueOrder() function. For example, to send 10 ships from
-    // planet 3 to planet 8, you would say pw.IssueOrder(3, 8, 10).
-    //
-    // There is already a basic strategy in place here. You can use it as a
-    // starting point, or you can throw it out entirely and replace it with
-    // your own. Check out the tutorials and articles on the contest website at
-    // http://www.ai-contest.com/resources.
-    public static void DoTurn(PlanetWars pw) {
+	private static void defend(PlanetWars pw) {
+		// TODO
+	}
+	
+	private static void attack(PlanetWars pw) {
 		// (1) If we currently have two fleets in flight, just do nothing.
     	int numFleets;
     	boolean attackMode = false;
@@ -52,8 +46,63 @@ public class MyBot {
 		    int numShips = source.NumShips() / 2;
 		    pw.IssueOrder(source, dest, numShips);
 		}
+	}
+	
+	// Make the best investment possible (greedy)
+	private static void invest(PlanetWars pw) {
+		// TODO change this logic...
+		// // TODO if (surplus) capture
+		// // TODO value = cost + power + distance (risk)
+		// // TODO fortify frontier according to values
+	}
+	
+	public static class Snapshot {
+		public int[] planets;
+		public int[] ownership;
+		
+		public Snapshot(int size) {
+			planets = new int[size];
+			ownership = new int[size];
+		}
+	}
+	
+	public static class Node {
+		public final int totalPlanets;
+		public final int[] growthRates;
+		public List<Snapshot> timeline;
+		
+		public Node(PlanetWars pw) {
+			totalPlanets = pw.NumPlanets();
+			
+			growthRates = new int[totalPlanets];
+			for (int i = 0; i < totalPlanets; ++i)
+				growthRates[i] = pw.GetPlanet(i).GrowthRate();
+			
+			timeline = new ArrayList<>();
+			Snapshot snapshot = new Snapshot(totalPlanets);
+			for (int i = 0; i < totalPlanets; ++i) {
+				Planet planet = pw.GetPlanet(i);
+				snapshot.planets[i] = planet.NumShips();
+				int owner = planet.Owner();
+				snapshot.ownership[i] = (owner == 2) ? -1 : owner;
+			}
+			timeline.add(snapshot);
+			
+			List<Fleet> fleets = pw.Fleets();
+		}
+	}
+	
+    public static void DoTurn(PlanetWars pw) {
+    	// setup analysis Node
+    	Node node = new Node(pw);
+    	
+    	// perform an investment
+    	invest(pw);
+    	
+    	// TODO make further investments according to strength, advantage, or desperation
     }
 
+    /* LEAVE MAIN METHOD ALONE */
     public static void main(String[] args) {
 	String line = "";
 	String message = "";

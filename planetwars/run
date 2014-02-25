@@ -1,0 +1,45 @@
+#!/bin/bash 
+
+# SETUP #
+TIME=1000
+MOVES=1000
+
+# COMPILE #
+`javac *.java`
+
+# BUILD MATCHES # 
+ENEMIES=($(ls example_bots/ | grep ".jar\|.class"))
+for i in {1..10}
+do
+	for ENEMY in "${ENEMIES[@]}"
+	do
+		NAME=${ENEMY%.*}
+		TYPE=${ENEMY##*.}
+
+		# construct command for running enemy
+		if [ $TYPE == "jar" ]
+		then
+			ECMD="java -jar example_bots/${ENEMY}"
+		elif [ $TYPE == "class" ]
+		then
+			ECMD="java ${NAME}"
+		fi
+
+		# run a match and collect results
+		LOG="log-${i}-${NAME}.txt"
+		MATCH="log-${i}-${NAME}.game"
+		MAP="maps/map${i}.txt"
+		RESULT=`java -jar tools/PlayGame.jar ${MAP} ${TIME} ${MOVES} ${LOG} "java MyBot" "${ECMD}" 2>&1 > ${MATCH} | grep "Player"`	
+
+		# analyze result and cleanup
+		if [[ $RESULT  != *1* ]]
+		then
+			echo "LOST! ${MATCH}"
+			`cat ${MATCH} | java -jar tools/ShowGame.jar`
+		else
+			rm ${MATCH}
+		fi
+		rm ${LOG}
+	done
+done
+
