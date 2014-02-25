@@ -35,7 +35,7 @@ do
 		if [[ $RESULT  != *1* ]]
 		then
 			echo "LOST! ${MATCH}"
-			`cat ${MATCH} | java -jar tools/ShowGame.jar`
+			#`cat ${MATCH} | java -jar tools/ShowGame.jar`
 		else
 			rm ${MATCH}
 		fi

@@ -1,8 +1,6 @@
 import java.util.*;
 
 public class MyBot {
-	private static final int LOOKAHEAD = 30;
-	
 	public static class Investment {
 		public int source;
 		public int destination;
@@ -16,28 +14,35 @@ public class MyBot {
 	// This is not optimal, but a decent heuristic to start with
 	private static void invest(PlanetWars pw, Node node, long time) {
 		Investment best = null;
+		List<Fleet> fleets = pw.MyFleets();
 		
 		boolean done = false;
 		for (Planet source : pw.MyPlanets()) {
 			for (Planet destination : pw.NotMyPlanets()) {
+				// make sure we don't go over-time
 				if (System.currentTimeMillis() - time > 950) {
 					done = true;
 					break;
 				}
+				
 				int sid = source.PlanetID();
 				int did = destination.PlanetID();
+				for (Fleet fleet : fleets)
+					if (fleet.DestinationPlanet() == did) continue;
+				
+//				int distance = Math.min(pw.Distance(sid, did), Node.LOOKAHEAD);
 				int distance = pw.Distance(sid, did);
-//				Snapshot snapshot = node.timeline.get(distance);
-				Snapshot snapshot = node.timeline.get(0);
 				
 				// make sure we have enough forces to invest
-				int sacrifice = snapshot.data[0][did] + 1; // we need at least 1 more than they will have
-				if (snapshot.data[0][sid] < sacrifice) continue;
+				int sacrifice = node.timeline[0][0][did] + 1;
+				if (node.timeline[0][0][sid] < sacrifice) continue;
+//				int sacrifice = node.timeline[distance][0][did] + 1; // we need at least 1 more than they will have
+//				if (node.timeline[distance][0][sid] < sacrifice) continue;
 				
 				// compute time it will take to net zero on investment
 				//  using makeup time by solving equation: 1 + [growth_rate][time] = [sacrifice]
-				int makeupTime = (sacrifice - 1);// / node.growthRates[did];
-				int netTime = distance + makeupTime;
+//				int makeupTime = node.timeline[distance][0][did] / node.growthRates[did];
+				int netTime = distance;// + makeupTime;
 				
 				// figure out new best investment
 				if (best == null || netTime < best.timeToReturn) {
@@ -55,122 +60,104 @@ public class MyBot {
 			pw.IssueOrder(best.source, best.destination, best.force);
 	}
 	
-	public static class Snapshot {
+	public static class Node {
+		private static final int LOOKAHEAD = 5;
 		public static final int DATASETS = 2;
 		public static final int MAX_PLANETS = 31;
+		private static final int TEAMS = 3;
+		// timeline[x] = snapshot "x" timesteps ahead of current iteration
+		// timeline[x][0] = number of ships
+		// timeline[x][1] = ownership
+		// timeline[x][y][z] = specific planet
 		
-		// data[0] = planets
-		// data[1] = ownership
-		public int[][] data = new int[DATASETS][MAX_PLANETS];
-		
-		public Snapshot() {}
-				
-		private Snapshot(Snapshot other) {
-			for (int i = 0; i < DATASETS; ++i)
-				for (int j = 0; j < MAX_PLANETS; ++j)
-					data[i][j] = other.data[i][j];
-		}
-		
-		public Snapshot clone() {
-			return new Snapshot(this);
-		}
-	}
-	
-	public static class Node {
 		public int totalPlanets;
-		public int[] growthRates;
-		public List<Snapshot> timeline;
-		
+		public int[] growthRates = new int[MAX_PLANETS];
+		public int[][][] timeline = new int[LOOKAHEAD][DATASETS][MAX_PLANETS];
+		private int[][] forces = new int[MAX_PLANETS][TEAMS];
 		
 		public Node(PlanetWars pw) {
+			// find total planets in the current map, assuming this is never > 30
 			totalPlanets = pw.NumPlanets();
 			
 			// keep track of growth rates
-			growthRates = new int[totalPlanets];
 			for (int i = 0; i < totalPlanets; ++i)
 				growthRates[i] = pw.GetPlanet(i).GrowthRate();
 			
 			// create first snapshot in timeline representing current game state
-			timeline = new ArrayList<>();
-			Snapshot current = new Snapshot();
+			int index = 0;
 			for (int i = 0; i < totalPlanets; ++i) {
 				Planet planet = pw.GetPlanet(i);
-				current.data[0][i] = planet.NumShips();
-				current.data[1][i] = planet.Owner();
+				timeline[index][0][i] = planet.NumShips();
+				timeline[index][1][i] = planet.Owner();
 			}
-			timeline.add(current);
 			
 			// create remaining snapshots using knowledge of current fleets
-			List<Fleet> fleets = pw.Fleets();
-			while (fleets.size() > 0) {
-				// create a new snapshot for next timestep
-				Snapshot next = current.clone();
+//			List<Fleet> fleets = pw.Fleets();
+//			while (fleets.size() > 0) {
+				// point to next timestep and copy values from prev timestep
+//				++index;
+//				for (int i = 0; i < DATASETS; ++i)
+//					for (int j = 0; j < MAX_PLANETS; ++j)
+//						timeline[index][i][j] = timeline[index-1][i][j];
 				
-				// update planets according to growth
-				for (int i = 0; i < totalPlanets; ++i) {
-					if (next.data[1][i] != 0)
-						next.data[0][i] += growthRates[i];
-				}
+				// update planets according to growth, only grow non-neutral planets
+//				for (int i = 0; i < totalPlanets; ++i) {
+//					if (timeline[index][1][i] != 0)
+//						timeline[index][0][i] += growthRates[i];
+//				}
 				
 				// advance fleets to next timestep
-				for (Fleet fleet : fleets)
-					fleet.TimeStep();
+//				for (Fleet fleet : fleets)
+//					fleet.TimeStep();
 				
-				// compute fleet arrivals
-				int[][] forces = new int[totalPlanets][3];
-				for (int i = 0; i < totalPlanets; ++i)
-					for (int j = 0; j < 3; ++j)
-						forces[i][j] = 0;
-				for (int i = 0; i < totalPlanets; ++i) {
-					forces[i][next.data[1][i]] = next.data[0][i];
-				}
-				for (Fleet fleet : fleets) {
-					if (fleet.TurnsRemaining() == 0) {
-						forces[fleet.DestinationPlanet()][fleet.Owner()] += fleet.NumShips();
-					}
-				}
-				for (int i = 0; i < totalPlanets; ++i) {
-					int maxLocation = 0;
-					for (int j = 1; j < 3; ++j)
-						if (forces[i][j] > forces[i][maxLocation])
-							maxLocation = j;
-					int losses = 0;
-					for (int j = 0; j < 3; ++j)
-						if (j != maxLocation && forces[i][j] > losses)
-							losses = forces[i][j];
-					int remaining = forces[i][maxLocation] - losses;
-					next.data[1][i] = remaining;
-					if (remaining > 0)
-						next.data[1][i] = maxLocation;
-				}
+//				// to compute fleet arrivals, first clear forces array
+//				for (int i = 0; i < totalPlanets; ++i)
+//					for (int j = 0; j < TEAMS; ++j)
+//						forces[i][j] = 0;
+//				
+//				// note current planet occupations
+//				for (int i = 0; i < totalPlanets; ++i)
+//					forces[i][timeline[index][1][i]] += timeline[index][0][i];
+//				
+				// note all fleets that are currently arriving, eliminate them from new list of fleets
+//				List<Fleet> remainingFleets = new ArrayList<>();
+//				for (Fleet fleet : fleets) {
+//					if (fleet.TurnsRemaining() == 0)
+//						forces[fleet.DestinationPlanet()][fleet.Owner()] += fleet.NumShips();
+//					else
+//						remainingFleets.add(fleet);
+//				}
+//				fleets = remainingFleets;
 				
-				// formulate list of remaining fleets
-				List<Fleet> remainingFleets = new ArrayList<>();
-				for (Fleet fleet : fleets) {
-					if (fleet.TurnsRemaining() > 0)
-						remainingFleets.add(fleet);
-				}
-				fleets = remainingFleets;
-				
-				// add Snapshot and update current pointer
-				timeline.add(next);
-				current = next;
-			}
+//				// assign new occupant according to battle rules
+//				for (int i = 0; i < totalPlanets; ++i) {
+//					int maxLocation = 0;
+//					for (int j = 1; j < TEAMS; ++j)
+//						if (forces[i][j] > forces[i][maxLocation])
+//							maxLocation = j;
+//					int losses = 0;
+//					for (int j = 0; j < TEAMS; ++j)
+//						if (j != maxLocation && forces[i][j] > losses)
+//							losses = forces[i][j];
+//					int remaining = forces[i][maxLocation] - losses;
+//					timeline[index][0][i] = remaining;
+//					if (remaining > 0)
+//						timeline[index][1][i] = maxLocation;
+//				}
+//			}
 			
-			while (timeline.size() < LOOKAHEAD) {
-				// create a new snapshot for next timestep
-				Snapshot next = current.clone();
-				
-				// update planets according to growth
-				for (int i = 0; i < totalPlanets; ++i) {
-					if (next.data[1][i] != 0)
-						next.data[0][i] += growthRates[i];
-				}
-				
-				// add snapshot and update current pointer
-				timeline.add(next);
-				current = next;
-			}
+			// extend the rest of the timeline out to lookahead limit
+//			while (index < LOOKAHEAD) {
+//				++index;
+//				for (int i = 0; i < DATASETS; ++i)
+//					for (int j = 0; j < totalPlanets; ++j)
+//						timeline[index][i][j] = timeline[index-1][i][j];
+//				
+//				for (int i = 0; i < totalPlanets; ++i) {
+//					if (timeline[index][1][i] != 0)
+//						timeline[index][0][i] += growthRates[i];
+//				}
+//			}
 		}
 	}
 	
